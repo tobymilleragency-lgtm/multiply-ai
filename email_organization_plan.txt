@@ -1,0 +1,133 @@
+# Thunderbird Email Organization System for Toby
+# This file contains the folder structure and filter rules for email organization
+
+# FOLDER STRUCTURE
+# The following folder hierarchy will be created:
+#
+# INBOX (Working inbox - only last 3 days of important emails)
+# ├── Action (Emails requiring action)
+# ├── Clients (Client-related correspondence)
+# ├── Finance-Receipts (Financial documents and receipts)
+# ├── Vendors (Vendor/supplier communications)
+# ├── Personal (Personal emails)
+# ├── Newsletters (Newsletters and subscriptions)
+# ├── Promotions (Promotional emails)
+# ├── Spam-Review (Suspicious emails for manual review)
+# └── Archive (Older emails, automatically organized)
+
+# PROTECTED SENDERS (Never filter these)
+# These domains and senders will always stay in inbox:
+PROTECTED_DOMAINS = [
+    "jeriko.ai",
+    "jeriko",
+    "multiply.ai",
+    "alphaconstructionpros.com",
+    "tobymilleragency.com",
+    "gmail.com",  # Personal gmail
+    "google.com",  # Google services
+    "github.com",  # Development notifications
+    "gitlab.com",  # Development notifications
+]
+
+# NEWSLETTER IDENTIFIERS
+NEWSLETTER_INDICATORS = [
+    "unsubscribe",
+    "newsletter",
+    "digest",
+    "weekly update",
+    "monthly update",
+    "bulletin",
+    "announcement",
+]
+
+# PROMOTION IDENTIFIERS
+PROMOTION_INDICATORS = [
+    "promotion",
+    "sale",
+    "discount",
+    "offer",
+    "deal",
+    "coupon",
+    "special offer",
+    "limited time",
+    "act now",
+    "don't miss",
+]
+
+# RECEIPT/FINANCE IDENTIFIERS
+FINANCE_INDICATORS = [
+    "receipt",
+    "invoice",
+    "payment",
+    "transaction",
+    "purchase",
+    "order confirmation",
+    "billing",
+    "statement",
+    "refund",
+]
+
+# VENDOR IDENTIFIERS
+VENDOR_INDICATORS = [
+    "supplier",
+    "vendor",
+    "purchase order",
+    "po #",
+    "shipping",
+    "delivery",
+    "tracking",
+]
+
+# SPAM INDICATORS (High confidence)
+SPAM_INDICATORS = [
+    "viagra",
+    "cialis",
+    "lottery",
+    "winner",
+    "congratulations you've won",
+    "nigerian prince",
+    "urgent wire transfer",
+    "inheritance",
+]
+
+# MESSAGE FILTER RULES
+# These rules will be applied in order:
+
+# Rule 1: Protect important senders
+# - If sender domain is in PROTECTED_DOMAINS, keep in inbox
+
+# Rule 2: High confidence spam
+# - If subject contains SPAM_INDICATORS, move to Spam-Review
+# - If sender is in known spam lists, move to Spam-Review
+
+# Rule 3: Financial documents
+# - If subject contains FINANCE_INDICATORS, move to Finance-Receipts
+# - If sender contains "no-reply@", "noreply@", "billing@", "invoice@", move to Finance-Receipts
+
+# Rule 4: Vendor communications
+# - If subject contains VENDOR_INDICATORS, move to Vendors
+# - If sender domain contains "supplier", "vendor", "shipping", move to Vendors
+
+# Rule 5: Newsletters
+# - If subject contains NEWSLETTER_INDICATORS, move to Newsletters
+# - If body contains unsubscribe link, move to Newsletters
+
+# Rule 6: Promotions
+# - If subject contains PROMOTION_INDICATORS, move to Promotions
+# - If sender contains "marketing@", "promotions@", "offers@", move to Promotions
+
+# Rule 7: Age-based archiving
+# - If email is older than 3 days and not in protected senders, move to Archive
+# - Exception: emails marked as important or starred stay in inbox
+
+# IMPLEMENTATION NOTES:
+# 1. Filters will be created using Thunderbird's built-in filter system
+# 2. IMAP folders will be created on the server for sync across devices
+# 3. Filters will run automatically on incoming mail
+# 4. Manual review folder (Spam-Review) for questionable items
+# 5. Archive folder for old emails (preserves everything)
+
+# MANUAL MAINTENANCE TASKS:
+# - Weekly: Review Spam-Review folder for false positives
+# - Monthly: Clean up Archive folder if needed
+# - Monthly: Review and update filter rules based on new patterns

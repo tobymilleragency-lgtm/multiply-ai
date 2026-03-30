@@ -1,0 +1,82 @@
+# Thunderbird Message Filter Rules for Toby
+# Generated email organization system
+# Import this file into Thunderbird: Tools > Message Filters > Import
+
+# Rule 1: Protect Important Senders (Jeriko/AI related)
+name="1. Protect Jeriko/AI Senders"
+enabled=true
+type=1
+action=Mark read
+condition="OR (from,contains,jeriko) OR (from,contains,multiply.ai) OR (from,contains,alphaconstructionpros) OR (from,contains,tobymilleragency)"
+
+# Rule 2: High Confidence Spam Detection
+name="2. Spam Detection - Move to Review"
+enabled=true
+type=1
+action=Move to folder
+actionValue="Spam-Review"
+condition="OR (subject,contains,viagra) OR (subject,contains,cialis) OR (subject,contains,lottery winner) OR (subject,contains,congratulations you've won) OR (subject,contains,nigerian prince) OR (subject,contains,urgent wire transfer) OR (subject,contains,inheritance)"
+
+# Rule 3: Financial Documents and Receipts
+name="3. Financial - Receipts and Invoices"
+enabled=true
+type=1
+action=Move to folder
+actionValue="Finance-Receipts"
+condition="OR (subject,contains,receipt) OR (subject,contains,invoice) OR (subject,contains,payment confirmation) OR (subject,contains,order confirmation) OR (subject,contains,billing) OR (subject,contains,transaction) OR (subject,contains,refund) OR (from,contains,no-reply@invoice) OR (from,contains,billing@)"
+
+# Rule 4: Vendor and Supplier Communications
+name="4. Vendor Communications"
+enabled=true
+type=1
+action=Move to folder
+actionValue="Vendors"
+condition="OR (subject,contains,shipping) OR (subject,contains,tracking number) OR (subject,contains,delivery update) OR (subject,contains,purchase order) OR (subject,contains,po #) OR (from,contains,shipping@) OR (from,contains,tracking@)"
+
+# Rule 5: Newsletter Detection
+name="5. Newsletter Organization"
+enabled=true
+type=1
+action=Move to folder
+actionValue="Newsletters"
+condition="OR (subject,contains,newsletter) OR (subject,contains,digest) OR (subject,contains,weekly update) OR (subject,contains,monthly update) OR (subject,contains,bulletin) OR (body,contains,unsubscribe) OR (body,contains,click here to unsubscribe)"
+
+# Rule 6: Promotional Emails
+name="6. Promotional Emails"
+enabled=true
+type=1
+action=Move to folder
+actionValue="Promotions"
+condition="OR (subject,contains,sale) OR (subject,contains,discount) OR (subject,contains,offer) OR (subject,contains,deal) OR (subject,contains,coupon) OR (subject,contains,special offer) OR (subject,contains,limited time) OR (subject,contains,act now) OR (from,contains,marketing@) OR (from,contains,promotions@)"
+
+# Rule 7: Age-Based Archiving (emails older than 3 days)
+name="7. Auto-Archive Old Emails"
+enabled=true
+type=17
+action=Move to folder
+actionValue="Archive"
+condition="AND (age in days,is greater than,3) AND (junkscore,!=,100)"
+
+# Rule 8: Gmail-specific organization
+name="8. Gmail Social Category"
+enabled=true
+type=1
+action=Move to folder
+actionValue="Newsletters"
+condition="(X-Gmail-Labels,contains,^social)"
+
+# Rule 9: Gmail Promotions Category
+name="9. Gmail Promotions Category"
+enabled=true
+type=1
+action=Move to folder
+actionValue="Promotions"
+condition="(X-Gmail-Labels,contains,^promotions)"
+
+# Rule 10: Gmail Updates Category
+name="10. Gmail Updates Category"
+enabled=true
+type=1
+action=Move to folder
+actionValue="Newsletters"
+condition="(X-Gmail-Labels,contains,^updates)"
