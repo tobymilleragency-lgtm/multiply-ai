@@ -324,10 +324,23 @@ export function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user ? { id: data.user.id, email: data.user.email } : null);
+    if (!isSupabaseConfigured) {
+      setUser(null);
       setLoading(false);
-    });
+      return;
+    }
+
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        setUser(data.user ? { id: data.user.id, email: data.user.email } : null);
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     const {
       data: { subscription },

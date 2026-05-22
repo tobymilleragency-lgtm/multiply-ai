@@ -1,5 +1,5 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
+import { createHash } from "crypto";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -25,12 +25,26 @@ app.use((_req, res, next) => {
 });
 app.use(express.json({ limit: "2mb" }));
 
-const mutationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+type RateLimitBucket = { count: number; resetAt: number };
+const rateLimitBuckets = new Map<string, RateLimitBucket>();
+const mutationLimiter: express.RequestHandler = (req, res, next) => {
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const limit = 30;
+  const identity = `${req.ip || "unknown"}:${req.headers.authorization || "anon"}`;
+  const key = createHash("sha256").update(identity).digest("hex");
+  const existing = rateLimitBuckets.get(key);
+  const bucket = existing && existing.resetAt > now ? existing : { count: 0, resetAt: now + windowMs };
+  bucket.count += 1;
+  rateLimitBuckets.set(key, bucket);
+  res.setHeader("RateLimit-Limit", String(limit));
+  res.setHeader("RateLimit-Remaining", String(Math.max(0, limit - bucket.count)));
+  res.setHeader("RateLimit-Reset", String(Math.ceil(bucket.resetAt / 1000)));
+  if (bucket.count > limit) {
+    return res.status(429).json({ error: "Too many requests" });
+  }
+  next();
+};
 
 // Environment validation
 const requiredEnvVars = [
@@ -150,6 +164,7 @@ app.post("/api/assessment/submit", mutationLimiter, async (req, res) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Analysis error";
     await (supabase as any).from("assessment_submissions").update({ output_json: { status: "error", message } }).eq("id", submissionId).eq("user_id", user.id);
+    return res.status(502).json({ error: message, id: submissionId });
   }
   res.json({ id: submissionId });
 });
@@ -943,12 +958,15 @@ app.post("/api/agent/run", mutationLimiter, async (req, res) => {
   try {
     const result = await generateJson(fullPrompt, inputData);
 
-    const { data: saved } = await (supabase as any).from("agent_outputs").insert({
+    const { data: saved, error: saveError } = await (supabase as any).from("agent_outputs").insert({
       user_id: user.id,
       agent_id: agentId,
       input_data: inputData,
       output_json: result.parsed,
     }).select("id").single();
+    if (saveError || !saved?.id) {
+      return res.status(500).json({ error: saveError?.message || "Agent output could not be saved" });
+    }
 
     // Increment usage counter
     const monthYear = new Date().toISOString().slice(0, 7);
@@ -973,6 +991,10 @@ app.post("/api/agent/run", mutationLimiter, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : "Agent run failed" });
   }
+});
+
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, service: "multiply-ai" });
 });
 
 app.get("*", (_req, res) => {
