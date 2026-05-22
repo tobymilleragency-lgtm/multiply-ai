@@ -35,6 +35,8 @@ import { GlobeCdn } from "@/components/ui/cobe-globe-cdn";
 
 
 type SessionUser = { id: string; email?: string | null } | null;
+type SupabaseUserResult = { data: { user: { id: string; email?: string | null } | null } };
+type SupabaseSession = { user: { id: string; email?: string | null } } | null;
 type Submission = {
   id: string;
   assessment_type: string;
@@ -332,7 +334,7 @@ export function App() {
 
     supabase.auth
       .getUser()
-      .then(({ data }) => {
+      .then(({ data }: SupabaseUserResult) => {
         setUser(data.user ? { id: data.user.id, email: data.user.email } : null);
       })
       .catch(() => {
@@ -344,7 +346,7 @@ export function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: string, session: SupabaseSession) => {
       setUser(
         session?.user
           ? { id: session.user.id, email: session.user.email }
