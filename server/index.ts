@@ -963,6 +963,7 @@ app.post("/api/agent/run", mutationLimiter, async (req, res) => {
       agent_id: agentId,
       input_data: inputData,
       output_json: result.parsed,
+      model_used: modelName(),
     }).select("id").single();
     if (saveError || !saved?.id) {
       return res.status(500).json({ error: saveError?.message || "Agent output could not be saved" });

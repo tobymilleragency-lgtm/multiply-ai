@@ -4,7 +4,8 @@
 -- 1. Church profiles (community intelligence)
 CREATE TABLE IF NOT EXISTS church_profiles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  church_name text,
   weekly_attendance integer,
   congregation_size_category text,
   church_age_category text,
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS church_profiles (
 
 ALTER TABLE church_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users manage own church profile" ON church_profiles
-  FOR ALL USING (user_id IN (SELECT id FROM profiles WHERE user_id = auth.uid()));
+  FOR ALL USING (auth.uid() = user_id);
 
 -- 2. Agent outputs (all 8 agents store results here)
 CREATE TABLE IF NOT EXISTS agent_outputs (

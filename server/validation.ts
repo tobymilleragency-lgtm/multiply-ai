@@ -1,31 +1,42 @@
 import { z } from "zod";
 
 // Assessment output schemas
+// Gemini often returns nested structured sections. The frontend renderer supports
+// strings, arrays, and objects, so production validation should enforce required
+// section keys without rejecting useful structured output.
+const sectionValue = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.array(z.unknown()),
+  z.record(z.string(), z.unknown()),
+]);
+
 export const innerFieldSchema = z.object({
-  soulPortrait: z.string(),
-  rootSystemReport: z.string(),
-  motivationalDriverMap: z.string(),
-  metanoiaInvitation: z.string(),
-  freedomPathway: z.string(),
-  supportFlag: z.string(),
-  supportNote: z.string(),
+  soulPortrait: sectionValue,
+  rootSystemReport: sectionValue,
+  motivationalDriverMap: sectionValue,
+  metanoiaInvitation: sectionValue,
+  freedomPathway: sectionValue,
+  supportFlag: sectionValue,
+  supportNote: sectionValue,
 });
 
 export const sendSchema = z.object({
-  leaderProfile: z.string(),
-  moduleScores: z.string(),
-  strategicPlan: z.string(),
-  ninetyDayPlan: z.string(),
-  coachingInsights: z.string(),
-  resourceRecommendations: z.string(),
+  leaderProfile: sectionValue,
+  moduleScores: sectionValue,
+  strategicPlan: sectionValue,
+  ninetyDayPlan: sectionValue,
+  coachingInsights: sectionValue,
+  resourceRecommendations: sectionValue,
 });
 
 export const fieldSchema = z.object({
-  fieldReport: z.string(),
-  greenhouseOrWildField: z.string(),
-  oneNextStep: z.string(),
-  pipelineGapMap: z.string(),
-  movementPathway: z.string(),
+  fieldReport: sectionValue,
+  greenhouseOrWildField: sectionValue,
+  oneNextStep: sectionValue,
+  pipelineGapMap: sectionValue,
+  movementPathway: sectionValue,
 });
 
 // Agent output schemas

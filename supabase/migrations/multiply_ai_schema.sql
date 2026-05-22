@@ -4,6 +4,7 @@
 create table if not exists church_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users on delete cascade,
+  church_name text,
   weekly_attendance integer,
   congregation_size_category text,
   church_age_category text,
@@ -41,6 +42,7 @@ create table if not exists agent_outputs (
   agent_id text not null,
   input_data jsonb,
   output_json jsonb,
+  model_used text,
   created_at timestamptz default now()
 );
 
