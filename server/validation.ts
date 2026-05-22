@@ -48,20 +48,21 @@ export function validateAssessmentOutput(type: AssessmentType, data: unknown) {
 }
 
 export function sanitizeJsonOutput(data: unknown): Record<string, unknown> | null {
-  if (!data || typeof data !== "object") return null;
-  
-  const obj = data as Record<string, unknown>;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  return sanitizeObject(data as Record<string, unknown>);
+}
+
+function sanitizeValue(value: unknown): unknown {
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) return value.map(sanitizeValue);
+  if (value && typeof value === "object") return sanitizeObject(value as Record<string, unknown>);
+  return value;
+}
+
+function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
-  
   for (const [key, value] of Object.entries(obj)) {
-    // Only include string values, filter out null/undefined and non-string types
-    if (typeof value === "string") {
-      sanitized[key] = value.trim();
-    } else if (value !== null && value !== undefined) {
-      // Convert non-string values to strings
-      sanitized[key] = String(value).trim();
-    }
+    if (value !== null && value !== undefined) sanitized[key] = sanitizeValue(value);
   }
-  
   return sanitized;
 }

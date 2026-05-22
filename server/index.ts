@@ -1,9 +1,10 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
-import { supabase, modelName, validateAssessmentType, parseAnswers, promptFor, generateJsonWithValidation, buildCommunityContext, THEOLOGICAL_FRAMEWORK } from "./utils.js";
+import { supabase, modelName, googleApiKey, validateAssessmentType, parseAnswers, promptFor, generateJsonWithValidation, buildCommunityContext, THEOLOGICAL_FRAMEWORK } from "./utils.js";
 import { validateAssessmentOutput, sanitizeJsonOutput, type AssessmentType } from "./validation.js";
 import type { Profile, ChurchProfile, AssessmentSubmission, CombinedReport } from "./db-types.js";
 
@@ -15,21 +16,35 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
 app.use(express.json({ limit: "2mb" }));
+
+const mutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Environment validation
 const requiredEnvVars = [
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'OPENROUTER_API_KEY',
-  'VITE_SUPABASE_URL',
-  'VITE_SUPABASE_ANON_KEY'
+  'MULTIPLY_AI_SUPABASE_URL',
+  'MULTIPLY_AI_SUPABASE_SERVICE_ROLE_KEY',
+  'VITE_MULTIPLY_AI_SUPABASE_URL',
+  'VITE_MULTIPLY_AI_SUPABASE_ANON_KEY'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (!googleApiKey()) missingEnvVars.push('MULTIPLY_AI_GOOGLE_API_KEY or GOOGLE_AI_API_KEY or GEMINI_API_KEY');
 if (missingEnvVars.length > 0) {
   console.error('Missing required environment variables:', missingEnvVars.join(', '));
-  console.error('Please copy .env.example to .env and fill in the required values.');
+  console.error('Please copy .env.example to .env and fill in the required Multiply.ai values.');
   process.exit(1);
 }
 
@@ -59,7 +74,7 @@ async function generateJson(system: string, payload: unknown, assessmentType?: A
 
 // ─── Existing routes ───────────────────────────────────────────────
 
-app.post("/api/profile", async (req, res) => {
+app.post("/api/profile", mutationLimiter, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
   const payload = req.body ?? {};
@@ -95,7 +110,7 @@ app.get("/api/submissions/:id", async (req, res) => {
   res.json({ submission: data });
 });
 
-app.post("/api/assessment/draft", async (req, res) => {
+app.post("/api/assessment/draft", mutationLimiter, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
   const { assessmentType, answers } = req.body ?? {};
@@ -113,7 +128,7 @@ app.post("/api/assessment/draft", async (req, res) => {
   res.json({ id: data.id });
 });
 
-app.post("/api/assessment/submit", async (req, res) => {
+app.post("/api/assessment/submit", mutationLimiter, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
   const { assessmentType, answers } = req.body ?? {};
@@ -130,7 +145,7 @@ app.post("/api/assessment/submit", async (req, res) => {
     submissionId = data.id;
   }
   try {
-    const analysis = await generateJson(promptFor(assessmentType), { assessmentType, answers: parsedAnswers });
+    const analysis = await generateJson(promptFor(assessmentType), { assessmentType, answers: parsedAnswers }, assessmentType);
     await (supabase as any).from("assessment_submissions").update({ output_json: analysis.parsed, raw_model_output: analysis.raw, model_used: modelName() }).eq("id", submissionId).eq("user_id", user.id);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Analysis error";
@@ -155,7 +170,7 @@ app.get("/api/combined-reports/:id", async (req, res) => {
   res.json({ report: data });
 });
 
-app.post("/api/combined-reports", async (req, res) => {
+app.post("/api/combined-reports", mutationLimiter, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
   const { data: submissions, error } = await (supabase as any).from("assessment_submissions").select("id, assessment_type, status, output_json").eq("user_id", user.id).eq("status", "completed").order("created_at", { ascending: false });
@@ -211,7 +226,7 @@ async function fetchCensusData(town: string, state: string): Promise<Record<stri
     }
 
     // 2. Income + demographics from ACS 2021 county level (more reliable with proper API key)
-    const censusApiKey = process.env.CENSUS_API_KEY || "DEMO_KEY";
+    const censusApiKey = process.env.MULTIPLY_AI_CENSUS_API_KEY || "DEMO_KEY";
     const acsUrl = `https://api.census.gov/data/2021/acs/acs5?get=NAME,B19013_001E,B02001_002E,B02001_003E,B02001_005E,B03003_003E,B17001_002E,B01003_001E&for=county:*&in=state:${fips}&key=${censusApiKey}`;
     const acsRes = await fetch(acsUrl, { signal: AbortSignal.timeout(10000) });
     let medianIncome: number | null = null;
@@ -274,7 +289,7 @@ app.get("/api/church-profile", async (req, res) => {
   res.json({ churchProfile: data || null });
 });
 
-app.post("/api/church-profile", async (req, res) => {
+app.post("/api/church-profile", mutationLimiter, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
   const payload = req.body ?? {};
@@ -878,7 +893,7 @@ app.get("/api/agent/outputs", async (req, res) => {
   res.json({ outputs: data || [] });
 });
 
-app.post("/api/agent/run", async (req, res) => {
+app.post("/api/agent/run", mutationLimiter, async (req, res) => {
   const user = await requireUser(req, res);
   if (!user) return;
 
@@ -966,6 +981,11 @@ app.get("*", (_req, res) => {
 
 const port = parseInt(process.env.PORT || "3000", 10);
 const host = process.env.HOST || "127.0.0.1";
-server.listen(port, host, () => {
-  console.log(`Multiply.ai running on http://${host}:${port}`);
-});
+if (process.env.VERCEL !== "1") {
+  server.listen(port, host, () => {
+    console.log(`Multiply.ai running on http://${host}:${port}`);
+  });
+}
+
+export default app;
+export { app };

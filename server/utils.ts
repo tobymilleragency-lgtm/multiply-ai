@@ -6,10 +6,10 @@ let supabaseClient: ReturnType<typeof createClient> | null = null;
 
 export function getSupabase() {
   if (!supabaseClient) {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const url = process.env.MULTIPLY_AI_SUPABASE_URL;
+    const key = process.env.MULTIPLY_AI_SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) {
-      throw new Error('Supabase environment variables not configured');
+      throw new Error('Multiply.ai Supabase setup required: MULTIPLY_AI_SUPABASE_URL and MULTIPLY_AI_SUPABASE_SERVICE_ROLE_KEY must be configured');
     }
     supabaseClient = createClient(url, key, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -26,40 +26,68 @@ export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
   }
 });
 
+export function googleApiKey() {
+  return process.env.MULTIPLY_AI_GOOGLE_API_KEY || process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+}
+
 export function modelName() {
-  return process.env.OPENROUTER_MODEL || 'openrouter/moonshotai/kimi-k2';
+  return process.env.MULTIPLY_AI_GEMINI_MODEL || "gemini-2.5-flash";
+}
+
+function extractGeminiText(json: unknown): string {
+  const data = json as {
+    candidates?: Array<{
+      content?: { parts?: Array<{ text?: string }> };
+      finishReason?: string;
+    }>;
+    promptFeedback?: unknown;
+  };
+  const text = data.candidates?.[0]?.content?.parts
+    ?.map(part => part.text || "")
+    .join("")
+    .trim();
+  if (!text) {
+    throw new Error(`Empty Gemini response${data.promptFeedback ? `: ${JSON.stringify(data.promptFeedback)}` : ""}`);
+  }
+  return text;
 }
 
 export async function generateJsonWithValidation(system: string, payload: unknown, assessmentType?: AssessmentType) {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const apiKey = googleApiKey();
+  if (!apiKey) {
+    throw new Error("Multiply.ai Gemini setup required: set MULTIPLY_AI_GOOGLE_API_KEY, GOOGLE_AI_API_KEY, or GEMINI_API_KEY");
+  }
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName())}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://multiply.ai",
-      "X-Title": "Multiply.ai",
     },
     body: JSON.stringify({
-      model: modelName(),
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: JSON.stringify(payload, null, 2) },
+      systemInstruction: {
+        parts: [{ text: system }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: JSON.stringify(payload, null, 2) }],
+        },
       ],
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: "application/json",
+      },
     }),
   });
 
   if (!response.ok) throw new Error(await response.text());
-  const json = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-  const content = json.choices?.[0]?.message?.content;
-  if (!content) throw new Error("Empty model response");
+  const content = extractGeminiText(await response.json());
   
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(content);
   } catch (error) {
-    throw new Error(`Invalid JSON response: ${error instanceof Error ? error.message : "Unknown error"}`);
+    throw new Error(`Invalid Gemini JSON response: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
   
   // Validate against schema if assessment type is provided

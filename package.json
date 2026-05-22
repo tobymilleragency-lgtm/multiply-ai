@@ -10,7 +10,7 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "preview": "vite preview --host 127.0.0.1",
-    "check": "tsc --noEmit",
+    "check": "pnpm exec tsc --noEmit",
     "format": "prettier --write ."
   },
   "dependencies": {

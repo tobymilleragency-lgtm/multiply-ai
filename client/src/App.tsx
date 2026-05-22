@@ -28,7 +28,7 @@ import {
 import { Link, Redirect, Route, Switch, useLocation, useParams } from "wouter";
 import { apiGet, apiPost } from "@/lib/api";
 import { AssessmentType, assessments, getAssessment } from "@/lib/assessments";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase, supabaseSetupMessage } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ErrorState } from "@/components/ErrorState";
 import { GlobeCdn } from "@/components/ui/cobe-globe-cdn";

@@ -107,7 +107,6 @@ export default function Home() {
     setStatus({ type: "idle", message: "" });
 
     try {
-      // For now, just show a success message since we're converting from construction to ministry platform
       setForm(initialForm);
       setStatus({
         type: "success",
